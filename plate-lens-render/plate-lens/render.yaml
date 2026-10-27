@@ -1,0 +1,16 @@
+# Optional: lets Render set everything up for you (New > Blueprint).
+services:
+  - type: web
+    name: plate-lens
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false          # you type the value in the Render dashboard
+      - key: LIMIT_PER_IP_HOUR
+        value: "10"
+      - key: LIMIT_PER_DAY
+        value: "150"

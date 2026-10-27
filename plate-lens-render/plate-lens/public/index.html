@@ -1,0 +1,1232 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Drop in a food photo and get calories, protein, carbs, fat and fiber, ingredient by ingredient.">
+<title>Plate Lens</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300..600&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap">
+<style>
+/* Layout: one centered column. Idle = headline + glass drop zone.
+   Result = annotated photo stage (labels sit in side gutters, curved leader lines run out of each ingredient), then glass cards.
+   Every ingredient owns one hue, used by its target dot, line end, label dot, list swatch and share-bar segment. */
+:root {
+  --bg: #07090D;
+  --ink: #EEF1F6;
+  --muted: #9AA3B2;
+  --faint: #6C7586;
+  --b1: #1C8F86;
+  --b2: #4B3FD0;
+  --b3: #D9694F;
+  --blob-o: .34;
+  --glass-a: rgba(255,255,255,.11);
+  --glass-b: rgba(255,255,255,.04);
+  --glass-spec: rgba(255,255,255,.14);
+  --glass-edge: rgba(255,255,255,.17);
+  --glass-hi: rgba(255,255,255,.26);
+  --glass-lo: rgba(255,255,255,.05);
+  --shadow: rgba(0,0,0,.6);
+  --tag-bg: rgba(10,13,19,.58);
+  --lead: #FFFFFF;
+  --lead-halo: rgba(0,0,0,.5);
+  --track: rgba(255,255,255,.10);
+  --protein: #8DB8FF;
+  --carbs: #FFC978;
+  --fat: #FF93A8;
+  --fiber: #7EE0B5;
+  --is: 78%;
+  --il: 70%;
+  --btn-bg: #EEF1F6;
+  --btn-ink: #0B0E14;
+  --f-display: 'Instrument Serif', Georgia, 'Times New Roman', serif;
+  --f-body: 'Geist', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --f-mono: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #E8ECF4;
+    --ink: #141A26;
+    --muted: #536074;
+    --faint: #7C8798;
+    --b1: #6FD3C6;
+    --b2: #9C94F5;
+    --b3: #F5A58F;
+    --blob-o: .55;
+    --glass-a: rgba(255,255,255,.66);
+    --glass-b: rgba(255,255,255,.30);
+    --glass-spec: rgba(255,255,255,.95);
+    --glass-edge: rgba(255,255,255,.9);
+    --glass-hi: rgba(255,255,255,1);
+    --glass-lo: rgba(20,26,38,.07);
+    --shadow: rgba(48,62,100,.30);
+    --tag-bg: rgba(255,255,255,.74);
+    --lead: #141A26;
+    --lead-halo: rgba(255,255,255,.8);
+    --track: rgba(20,26,38,.09);
+    --protein: #3E78E8;
+    --carbs: #D48410;
+    --fat: #E0506E;
+    --fiber: #1D9E70;
+    --is: 62%;
+    --il: 42%;
+    --btn-bg: #141A26;
+    --btn-ink: #FFFFFF;
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #E8ECF4;
+  --ink: #141A26;
+  --muted: #536074;
+  --faint: #7C8798;
+  --b1: #6FD3C6;
+  --b2: #9C94F5;
+  --b3: #F5A58F;
+  --blob-o: .55;
+  --glass-a: rgba(255,255,255,.66);
+  --glass-b: rgba(255,255,255,.30);
+  --glass-spec: rgba(255,255,255,.95);
+  --glass-edge: rgba(255,255,255,.9);
+  --glass-hi: rgba(255,255,255,1);
+  --glass-lo: rgba(20,26,38,.07);
+  --shadow: rgba(48,62,100,.30);
+  --tag-bg: rgba(255,255,255,.74);
+  --lead: #141A26;
+  --lead-halo: rgba(255,255,255,.8);
+  --track: rgba(20,26,38,.09);
+  --protein: #3E78E8;
+  --carbs: #D48410;
+  --fat: #E0506E;
+  --fiber: #1D9E70;
+  --is: 62%;
+  --il: 42%;
+  --btn-bg: #141A26;
+  --btn-ink: #FFFFFF;
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+html, body { min-height: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 400 15px/1.55 var(--f-body);
+  -webkit-font-smoothing: antialiased;
+  padding-block: 20px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+button { font: inherit; color: inherit; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ambient background */
+.bg { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+.bg i { position: absolute; border-radius: 50%; filter: blur(80px); opacity: var(--blob-o); }
+.bg .b1 { width: 52vmax; height: 52vmax; left: -14vmax; top: -16vmax; background: var(--b1); animation: drift1 26s ease-in-out infinite alternate; }
+.bg .b2 { width: 46vmax; height: 46vmax; right: -12vmax; top: 18vh; background: var(--b2); animation: drift2 32s ease-in-out infinite alternate; }
+.bg .b3 { width: 40vmax; height: 40vmax; left: 22vw; bottom: -22vmax; background: var(--b3); animation: drift3 29s ease-in-out infinite alternate; }
+@keyframes drift1 { to { transform: translate(8vmax, 6vmax) scale(1.08); } }
+@keyframes drift2 { to { transform: translate(-7vmax, 8vmax) scale(.94); } }
+@keyframes drift3 { to { transform: translate(6vmax, -7vmax) scale(1.1); } }
+
+.app { position: relative; z-index: 1; max-width: 1120px; margin: 0 auto; display: grid; gap: 28px; }
+
+/* liquid glass */
+.glass {
+  background:
+    radial-gradient(120% 90% at 0% 0%, var(--glass-spec), transparent 58%),
+    linear-gradient(135deg, var(--glass-a), var(--glass-b));
+  -webkit-backdrop-filter: blur(26px) saturate(170%);
+  backdrop-filter: blur(26px) saturate(170%);
+  border: 1px solid var(--glass-edge);
+  box-shadow: inset 0 1px 0 var(--glass-hi), inset 0 -1px 0 var(--glass-lo), 0 30px 60px -32px var(--shadow);
+}
+
+/* buttons */
+.btn {
+  appearance: none;
+  cursor: pointer;
+  padding: 11px 20px;
+  border-radius: 999px;
+  border: 1px solid var(--glass-edge);
+  background: linear-gradient(135deg, var(--glass-a), var(--glass-b));
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+  box-shadow: inset 0 1px 0 var(--glass-hi);
+  font-weight: 500;
+  font-size: 14px;
+  letter-spacing: .01em;
+  transition: transform .2s ease, background .2s ease, opacity .2s ease;
+}
+.btn:hover { transform: translateY(-1px); }
+.btn:active { transform: translateY(0) scale(.98); }
+.btn:disabled { opacity: .55; cursor: default; transform: none; }
+.btn.primary { background: var(--btn-bg); color: var(--btn-ink); border-color: transparent; box-shadow: 0 10px 30px -12px var(--shadow); }
+:is(.btn, .drop, .seg button, .ing-list li, .x):focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+
+/* header */
+.top { display: flex; align-items: center; justify-content: space-between; min-height: 44px; }
+.brand { display: flex; align-items: center; gap: 10px; font-family: var(--f-display); font-style: italic; font-size: 24px; letter-spacing: .01em; }
+.mark {
+  width: 18px; height: 18px; border-radius: 50%;
+  border: 1px solid var(--glass-edge);
+  background: radial-gradient(circle at 30% 28%, var(--glass-spec), transparent 60%), linear-gradient(135deg, var(--b1), var(--b2));
+  box-shadow: inset 0 1px 0 var(--glass-hi);
+}
+
+/* intro */
+.intro { text-align: center; padding-top: clamp(16px, 6vh, 64px); display: grid; justify-items: center; }
+.eyebrow { margin: 0; font-size: 11px; font-weight: 500; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+h1 {
+  margin: 18px 0 0;
+  font-family: var(--f-display);
+  font-weight: 400;
+  font-size: clamp(42px, 8vw, 88px);
+  line-height: 1.02;
+  letter-spacing: -.02em;
+  text-wrap: balance;
+}
+h1 em { font-style: italic; }
+.lead { margin: 20px 0 0; max-width: 46ch; color: var(--muted); font-size: 16px; font-weight: 300; text-wrap: pretty; }
+.drop {
+  margin-top: 40px;
+  width: 100%;
+  max-width: 640px;
+  min-height: 270px;
+  padding: 36px 24px;
+  border-radius: 32px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  text-align: center;
+  cursor: pointer;
+  transition: transform .3s ease, box-shadow .3s ease, border-color .3s ease;
+}
+.drop:hover { transform: translateY(-2px); }
+.drop.over { transform: scale(1.015); border-color: var(--ink); }
+.drop-icon { width: 46px; height: 46px; color: var(--ink); opacity: .85; margin-bottom: 6px; }
+.drop-title { margin: 0; font-family: var(--f-display); font-size: 30px; line-height: 1.1; }
+.drop-sub { margin: 0 0 14px; color: var(--muted); font-size: 14px; }
+.drop-note { margin: 12px 0 0; font-size: 12px; color: var(--faint); letter-spacing: .04em; min-height: 1.4em; }
+.drop-note.warn { color: var(--ink); }
+
+/* workspace */
+.work { display: grid; gap: 22px; }
+.stage { border-radius: 36px; padding: 14px; }
+.stage-inner { display: flex; justify-content: center; padding-inline: var(--gut, 0px); }
+.stage.out { --gut: 150px; }
+.imgwrap { position: relative; display: inline-block; max-width: 100%; line-height: 0; }
+#photo {
+  display: block;
+  max-width: 100%;
+  max-height: min(66vh, 720px);
+  width: auto;
+  height: auto;
+  border-radius: 24px;
+  transition: filter .8s ease;
+}
+.imgwrap.scanning #photo { filter: brightness(.8) saturate(.85); }
+.scan { position: absolute; inset: 0; border-radius: 24px; overflow: hidden; pointer-events: none; opacity: 0; transition: opacity .5s ease; }
+.imgwrap.scanning .scan { opacity: 1; }
+.scan::before {
+  content: ""; position: absolute; inset: 0;
+  background-image:
+    linear-gradient(to right, rgba(255,255,255,.16) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255,255,255,.16) 1px, transparent 1px);
+  background-size: 10% 10%;
+}
+.beam {
+  position: absolute; left: 0; right: 0; top: -130px; height: 130px;
+  background: linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,.12) 55%, rgba(255,255,255,.5) 96%, rgba(255,255,255,0) 100%);
+  animation: sweep 2.4s cubic-bezier(.55,0,.45,1) infinite;
+}
+.beam::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 3px; height: 1.5px;
+  background: #fff;
+  box-shadow: 0 0 14px 3px rgba(255,255,255,.7), 0 0 40px 8px rgba(255,255,255,.3);
+}
+@keyframes sweep { from { top: -130px; } to { top: 100%; } }
+
+/* annotations */
+.ov { position: absolute; inset: 0; pointer-events: none; }
+.ov svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.lg { transition: opacity .3s ease; }
+.lg.dim { opacity: .22; }
+.lg.off { opacity: .3; }
+.lead-halo, .lead-line { fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw .9s cubic-bezier(.3,.7,.2,1) both; animation-delay: calc(var(--i) * 140ms + 260ms); }
+.lead-halo { stroke: var(--lead-halo); stroke-width: 3.8; }
+.lead-line { stroke-width: 1.5; }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+.spark { fill: var(--lead); stroke: var(--lead-halo); stroke-width: 2; paint-order: stroke; opacity: 0; pointer-events: none; }
+.bb { fill-opacity: .12; stroke-width: 1.6; opacity: 0; transition: opacity .25s ease; pointer-events: none; }
+.bb.show { opacity: 1; }
+
+.retin { transform-box: fill-box; transform-origin: center; opacity: 0; animation: pop .6s cubic-bezier(.3,1.5,.5,1) both; animation-delay: calc(var(--i) * 140ms); }
+.r-halo { fill: none; stroke: var(--lead-halo); stroke-width: 3.8; }
+.r-ring { fill: none; stroke: var(--lead); stroke-width: 1.4; }
+.r-tick-h { fill: none; stroke: var(--lead-halo); stroke-width: 3.8; stroke-linecap: round; }
+.r-tick { fill: none; stroke: var(--lead); stroke-width: 1.4; stroke-linecap: round; }
+.r-core { stroke: var(--lead-halo); stroke-width: 2; paint-order: stroke; transition: r .2s ease; }
+.pulse { fill: none; stroke: var(--lead); stroke-width: 1; transform-box: fill-box; transform-origin: center; opacity: 0; animation: ring 2.8s ease-out infinite; animation-delay: calc(var(--i) * 140ms + 700ms); }
+.hit { fill: transparent; pointer-events: all; cursor: grab; touch-action: none; }
+.hit:active { cursor: grabbing; }
+.lg.hot .r-core { r: 4.2px; }
+@keyframes pop { 0% { opacity: 0; transform: scale(0); } 60% { opacity: 1; transform: scale(1.5); } 100% { opacity: 1; transform: scale(1); } }
+@keyframes ring { 0% { opacity: .7; transform: scale(.8); } 100% { opacity: 0; transform: scale(3.2); } }
+
+.tag {
+  position: absolute;
+  height: var(--tag-h, 32px);
+  max-width: 150px;
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 13px 0 11px;
+  border-radius: 999px;
+  white-space: nowrap;
+  line-height: 1;
+  font-size: 13px; font-weight: 500;
+  pointer-events: auto;
+  cursor: pointer;
+  background: var(--tag-bg);
+  -webkit-backdrop-filter: blur(16px) saturate(170%);
+  backdrop-filter: blur(16px) saturate(170%);
+  border: 1px solid var(--glass-edge);
+  box-shadow: inset 0 1px 0 var(--glass-hi), 0 10px 24px -12px var(--shadow);
+  opacity: 0;
+  animation: tagin .55s cubic-bezier(.2,.8,.2,1) both;
+  animation-delay: calc(var(--i) * 140ms + 760ms);
+  transition: border-color .25s ease;
+}
+.tag.on { border-color: var(--ink); }
+.tag .td { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--c); }
+.tag .n { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.tag .k { font-family: var(--f-mono); font-size: 11.5px; font-weight: 400; color: var(--muted); }
+.tag.off { border-style: dashed; }
+.tag.off .n { text-decoration: line-through; color: var(--faint); }
+.tag.off .td { background: transparent; box-shadow: inset 0 0 0 1px var(--faint); }
+.stage:not(.out) .tag { padding: 0 9px; font-size: 12px; gap: 6px; max-width: 128px; }
+.stage:not(.out) .tag .k { font-size: 10.5px; }
+@keyframes tagin { from { opacity: 0; transform: translateY(5px) scale(.96); } to { opacity: 1; transform: none; } }
+
+.tip { margin: -6px 0 0; text-align: center; color: var(--muted); font-size: 13px; text-wrap: balance; }
+
+/* status + error */
+.status { display: flex; align-items: center; justify-content: center; gap: 16px; flex-wrap: wrap; }
+.status-text { font-family: var(--f-display); font-style: italic; font-size: 26px; min-width: 0; animation: fadein .6s ease; }
+.pulse-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--ink); animation: breathe 1.4s ease-in-out infinite; }
+@keyframes breathe { 0%, 100% { opacity: .25; transform: scale(.8); } 50% { opacity: 1; transform: scale(1.15); } }
+@keyframes fadein { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.errorbox { border-radius: 28px; padding: 28px; text-align: center; display: grid; justify-items: center; gap: 8px; max-width: 560px; margin-inline: auto; width: 100%; }
+.errorbox h2 { margin: 0; font-family: var(--f-display); font-weight: 400; font-size: 30px; }
+.errorbox p { margin: 0 0 12px; color: var(--muted); max-width: 42ch; text-wrap: pretty; }
+.errorbox .row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+
+/* results */
+.results { display: grid; grid-template-columns: minmax(0, 1fr); gap: 22px; align-items: start; animation: fadein .7s ease both; animation-delay: .5s; }
+@media (min-width: 860px) { .results { grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); } }
+.card { border-radius: 32px; padding: 28px; min-width: 0; }
+.dish { margin: 10px 0 0; font-family: var(--f-display); font-weight: 400; font-size: clamp(30px, 4vw, 40px); line-height: 1.08; letter-spacing: -.01em; text-wrap: balance; }
+.meta { margin: 10px 0 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; color: var(--muted); font-size: 14px; }
+.chip { padding: 3px 10px; border-radius: 999px; border: 1px solid var(--glass-edge); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; background: var(--glass-b); }
+.kcal-row { display: flex; align-items: baseline; gap: 10px; margin-top: 22px; }
+.kcal { font-family: var(--f-display); font-size: clamp(76px, 12vw, 108px); line-height: .9; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.unit { font-family: var(--f-mono); font-size: 13px; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; }
+.dv { margin: 8px 0 0; color: var(--muted); font-size: 14px; }
+.share { display: flex; gap: 2px; height: 10px; margin-top: 20px; border-radius: 99px; overflow: hidden; background: var(--track); }
+.share i { display: block; height: 100%; flex: var(--w, 0) 1 0; min-width: 0; background: var(--c); transition: flex-grow .9s cubic-bezier(.2,.8,.2,1), opacity .3s ease; }
+.share i.dim { opacity: .25; }
+.share-cap { margin: 8px 0 0; font-size: 12px; color: var(--faint); letter-spacing: .02em; }
+.portion { margin-top: 24px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.seg { display: inline-flex; padding: 3px; border-radius: 999px; border: 1px solid var(--glass-edge); background: var(--glass-b); }
+.seg button { appearance: none; border: 0; background: transparent; cursor: pointer; padding: 7px 14px; border-radius: 999px; font-family: var(--f-mono); font-size: 13px; color: var(--muted); transition: background .2s ease, color .2s ease; }
+.seg button[aria-checked="true"] { background: var(--btn-bg); color: var(--btn-ink); }
+.macros { margin-top: 26px; display: grid; gap: 16px; }
+.mrow { display: grid; grid-template-columns: 68px minmax(0, 1fr) auto; align-items: center; gap: 14px; }
+.mlabel { font-size: 13px; color: var(--muted); }
+.track { height: 6px; border-radius: 99px; background: var(--track); overflow: hidden; }
+.fill { height: 100%; width: 0; border-radius: inherit; background: var(--c); transition: width 1.1s cubic-bezier(.2,.8,.2,1); }
+.mval { font-family: var(--f-mono); font-size: 13px; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.mval small { color: var(--faint); font-size: 11px; margin-left: 6px; }
+.extras { margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--glass-lo); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.extras div { display: grid; gap: 2px; }
+.extras b { font-family: var(--f-mono); font-weight: 400; font-size: 18px; font-variant-numeric: tabular-nums; }
+.extras span { font-size: 12px; color: var(--muted); }
+.note { margin: 20px 0 0; color: var(--muted); font-size: 14px; font-weight: 300; text-wrap: pretty; }
+.actions { margin-top: 22px; display: flex; gap: 10px; flex-wrap: wrap; }
+
+.ing-hint { margin: 6px 0 0; font-size: 12.5px; color: var(--faint); }
+.ing-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; }
+.ing-list li { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 14px 8px; margin-inline: -8px; border-radius: 16px; cursor: pointer; transition: background .2s ease; }
+.ing-list li + li { box-shadow: 0 -1px 0 var(--glass-lo); }
+.ing-list li.on { background: var(--glass-b); }
+.sw { width: 11px; height: 11px; border-radius: 50%; background: var(--c); transition: background .2s ease, box-shadow .2s ease; }
+.ing-list li.off .sw { background: transparent; box-shadow: inset 0 0 0 1.5px var(--faint); }
+.ing-list li.off .ing-name { text-decoration: line-through; color: var(--faint); }
+.ing-name { font-family: var(--f-display); font-size: 22px; line-height: 1.15; }
+.ing-sub { margin-top: 2px; font-family: var(--f-mono); font-size: 11.5px; color: var(--muted); letter-spacing: .01em; }
+.ing-kcal { font-family: var(--f-mono); font-size: 14px; font-variant-numeric: tabular-nums; text-align: right; }
+.ing-kcal small { display: block; color: var(--faint); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; }
+
+/* today log */
+.today { border-radius: 32px; padding: 26px 28px; }
+.today-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; flex-wrap: wrap; }
+.today-num { display: flex; align-items: baseline; gap: 10px; margin-top: 6px; }
+.today-num b { font-family: var(--f-display); font-weight: 400; font-size: 56px; line-height: .95; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.tm { display: flex; gap: 20px; flex-wrap: wrap; }
+.tm div { display: grid; gap: 2px; }
+.tm b { font-family: var(--f-mono); font-weight: 400; font-size: 15px; font-variant-numeric: tabular-nums; }
+.tm span { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.tm i { width: 7px; height: 7px; border-radius: 50%; background: var(--c); }
+.today .track { margin-top: 18px; height: 8px; }
+.meals { list-style: none; margin: 14px 0 0; padding: 0; display: grid; }
+.meals li { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto auto; gap: 14px; align-items: center; padding: 10px 0; }
+.meals li + li { box-shadow: 0 -1px 0 var(--glass-lo); }
+.thumb { width: 48px; height: 48px; border-radius: 14px; object-fit: cover; background: var(--track); display: block; }
+.meal-name { font-family: var(--f-display); font-size: 20px; line-height: 1.15; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.meal-time { font-family: var(--f-mono); font-size: 11.5px; color: var(--muted); }
+.meal-kcal { font-family: var(--f-mono); font-size: 14px; font-variant-numeric: tabular-nums; }
+.x { appearance: none; border: 0; background: transparent; color: var(--faint); cursor: pointer; width: 32px; height: 32px; border-radius: 50%; font-size: 18px; line-height: 1; }
+.x:hover { background: var(--glass-b); color: var(--ink); }
+
+.foot { text-align: center; color: var(--faint); font-size: 12px; letter-spacing: .02em; padding-top: 8px; }
+
+/* drag veil */
+.veil { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 24px; background: rgba(0,0,0,.18); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+.veil-card { padding: 34px 48px; border-radius: 36px; font-family: var(--f-display); font-size: 34px; text-align: center; }
+
+@media (max-width: 560px) {
+  .card, .today { padding: 22px; border-radius: 28px; }
+  .stage { border-radius: 28px; padding: 10px; }
+  #photo { border-radius: 20px; }
+  .scan { border-radius: 20px; }
+  .mrow { grid-template-columns: 56px minmax(0, 1fr) auto; gap: 10px; }
+  .status-text { font-size: 22px; }
+  .meals li { grid-template-columns: 44px minmax(0, 1fr) auto auto; gap: 10px; }
+  .today-num b { font-size: 46px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-delay: 0ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  .beam, .pulse, .spark { display: none; }
+}
+[hidden] { display: none !important; }
+img { max-width: 100%; }
+</style>
+</head>
+<body>
+
+<div class="bg" aria-hidden="true"><i class="b1"></i><i class="b2"></i><i class="b3"></i></div>
+
+<div class="app" id="app" data-state="idle">
+  <header class="top">
+    <div class="brand"><span class="mark" aria-hidden="true"></span><span>Plate Lens</span></div>
+    <button class="btn" id="newBtn" type="button" hidden>New photo</button>
+  </header>
+
+  <section class="intro" id="intro">
+    <p class="eyebrow">Food photo analysis</p>
+    <h1>What’s on your <em>plate</em>?</h1>
+    <p class="lead">Drop in a photo. Get calories, protein, carbs, fat and fiber, ingredient by ingredient.</p>
+
+    <div class="drop glass" id="drop" tabindex="0" role="button" aria-label="Choose or drop a food photo">
+      <svg class="drop-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="24" cy="26" r="15"/>
+        <circle cx="24" cy="26" r="9" opacity=".55"/>
+        <path d="M8 6v10M12 6v10M16 6v10M8 12h8M12 16v8"/>
+        <path d="M40 6c-3 2-4 6-4 10h4v8" />
+      </svg>
+      <p class="drop-title">Drop a photo here</p>
+      <p class="drop-sub">or paste one from your clipboard</p>
+      <button class="btn primary" type="button" id="pick">Choose photo</button>
+      <p class="drop-note" id="hint">JPEG, PNG or WebP</p>
+    </div>
+  </section>
+
+  <section class="work" id="work" hidden>
+    <div class="stage glass" id="stage">
+      <div class="stage-inner">
+        <div class="imgwrap" id="imgwrap">
+          <img id="photo" alt="Your food photo">
+          <div class="scan" aria-hidden="true"><div class="beam"></div></div>
+          <div class="ov" id="ov"><svg id="svg" aria-hidden="true"></svg></div>
+        </div>
+      </div>
+    </div>
+
+    <p class="tip" id="tip" hidden>Dot off target? Drag it onto the right spot. Tap a label to leave that ingredient out.</p>
+
+    <div class="status" id="status" hidden role="status" aria-live="polite">
+      <span class="pulse-dot" aria-hidden="true"></span>
+      <span class="status-text" id="statusText">Looking at your plate</span>
+      <button class="btn" id="cancel" type="button">Cancel</button>
+    </div>
+
+    <div class="errorbox glass" id="error" hidden role="alert">
+      <h2 id="errTitle">Something went wrong</h2>
+      <p id="errMsg"></p>
+      <div class="row">
+        <button class="btn primary" id="retry" type="button">Try again</button>
+        <button class="btn" id="other" type="button">Choose another photo</button>
+      </div>
+    </div>
+
+    <div class="results" id="results" hidden>
+      <article class="card glass">
+        <p class="eyebrow">Estimated total</p>
+        <h2 class="dish" id="dish"></h2>
+        <p class="meta"><span id="serving"></span><span class="chip" id="conf"></span></p>
+        <div class="kcal-row"><span class="kcal" id="kcal">0</span><span class="unit">kcal</span></div>
+        <p class="dv" id="kcalDv"></p>
+        <div class="share" id="share" aria-hidden="true"></div>
+        <p class="share-cap">Where the calories come from</p>
+        <div class="portion">
+          <span class="eyebrow">Portion</span>
+          <div class="seg" id="seg" role="radiogroup" aria-label="Portion size">
+            <button type="button" role="radio" aria-checked="false" data-m="0.5">½×</button>
+            <button type="button" role="radio" aria-checked="true" data-m="1">1×</button>
+            <button type="button" role="radio" aria-checked="false" data-m="1.5">1½×</button>
+            <button type="button" role="radio" aria-checked="false" data-m="2">2×</button>
+          </div>
+        </div>
+        <div class="macros" id="macros"></div>
+        <div class="extras">
+          <div><b id="sugar">0 g</b><span>Sugar</span></div>
+          <div><b id="sodium">0 mg</b><span>Sodium</span></div>
+        </div>
+        <p class="note" id="note"></p>
+        <div class="actions"><button class="btn primary" id="logBtn" type="button">Add to today</button></div>
+      </article>
+
+      <article class="card glass">
+        <p class="eyebrow">Ingredients</p>
+        <p class="ing-hint">Tap one to leave it out and see the totals change.</p>
+        <ul class="ing-list" id="ingList"></ul>
+      </article>
+    </div>
+  </section>
+
+  <section class="today glass" id="today" hidden>
+    <div class="today-head">
+      <div>
+        <p class="eyebrow">Today</p>
+        <div class="today-num"><b id="tKcal">0</b><span class="unit">/ 2,000 kcal</span></div>
+      </div>
+      <div class="tm" id="tMacros"></div>
+    </div>
+    <div class="track"><div class="fill" id="tFill" style="--c: var(--ink)"></div></div>
+    <ul class="meals" id="meals"></ul>
+  </section>
+
+  <footer class="foot">Estimates from a photo. Not medical or dietary advice.</footer>
+</div>
+
+<div class="veil" id="veil" hidden><div class="glass veil-card">Release to analyze</div></div>
+<input class="sr" type="file" id="file" accept="image/*" tabindex="-1">
+
+<script>
+(function () {
+  'use strict';
+
+  var $ = function (id) { return document.getElementById(id); };
+  var NS = 'http://www.w3.org/2000/svg';
+  var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  var app = $('app'), intro = $('intro'), work = $('work'), stage = $('stage'), imgwrap = $('imgwrap');
+  var photo = $('photo'), ov = $('ov'), svg = $('svg'), statusEl = $('status'), statusText = $('statusText');
+  var errorEl = $('error'), results = $('results'), newBtn = $('newBtn'), drop = $('drop'), hint = $('hint');
+  var fileInput = $('file'), veil = $('veil'), tip = $('tip'), todayEl = $('today'), logBtn = $('logBtn');
+
+  var MACROS = [
+    ['protein', 'Protein', 50, 'var(--protein)'],
+    ['carbs', 'Carbs', 275, 'var(--carbs)'],
+    ['fat', 'Fat', 78, 'var(--fat)'],
+    ['fiber', 'Fiber', 28, 'var(--fiber)']
+  ];
+  var STATUS = ['Mapping your plate', 'Finding ingredients', 'Locating each one', 'Estimating portions', 'Counting calories'];
+  var GOAL = 2000;
+
+  var items = [], mult = 1;
+  var objectUrl = null, currentFile = null, ctl = null, statusTimer = null, dragging = false;
+  var macroRows = {};
+
+  /* ---------- helpers ---------- */
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+  function sv(tag, attrs) {
+    var n = document.createElementNS(NS, tag);
+    for (var k in attrs) n.setAttribute(k, attrs[k]);
+    return n;
+  }
+  function clamp(v, a, b) { return Math.min(b, Math.max(a, v)); }
+  function num(v) { var n = Number(v); return isFinite(n) && n > 0 ? n : 0; }
+  function pos(v, d) { if (v === null || v === undefined || v === '') return d; var n = Number(v); return isFinite(n) ? n : d; }
+  function nf(v) { return Math.round(v).toLocaleString('en-US'); }
+  function g(v) { return v < 10 ? (Math.round(v * 10) / 10).toString() : String(Math.round(v)); }
+  function f1(v) { return (Math.round(v * 10) / 10).toString(); }
+
+  function setState(s) {
+    app.dataset.state = s;
+    intro.hidden = s !== 'idle';
+    work.hidden = s === 'idle';
+    statusEl.hidden = s !== 'analyzing';
+    errorEl.hidden = s !== 'error';
+    results.hidden = s !== 'result';
+    tip.hidden = s !== 'result';
+    newBtn.hidden = s === 'idle';
+    imgwrap.classList.toggle('scanning', s === 'analyzing');
+    if (s === 'analyzing') startStatus(); else stopStatus();
+    renderToday();
+  }
+  function startStatus() {
+    stopStatus();
+    var i = 0;
+    statusText.textContent = STATUS[0];
+    statusTimer = setInterval(function () {
+      i = Math.min(i + 1, STATUS.length - 1);
+      statusText.style.animation = 'none';
+      void statusText.offsetWidth;
+      statusText.style.animation = '';
+      statusText.textContent = STATUS[i];
+    }, 2600);
+  }
+  function stopStatus() { if (statusTimer) { clearInterval(statusTimer); statusTimer = null; } }
+
+  function clearOverlay() {
+    items = [];
+    svg.textContent = '';
+    ov.querySelectorAll('.tag').forEach(function (t) { t.remove(); });
+    $('ingList').textContent = '';
+    $('share').textContent = '';
+  }
+  function resetToIdle() {
+    if (ctl) { try { ctl.abort(); } catch (e) {} ctl = null; }
+    clearOverlay();
+    if (objectUrl) { URL.revokeObjectURL(objectUrl); objectUrl = null; }
+    currentFile = null;
+    photo.removeAttribute('src');
+    setState('idle');
+  }
+
+  /* ---------- file intake ---------- */
+  function flash(msg) {
+    hint.textContent = msg;
+    hint.classList.add('warn');
+    setTimeout(function () { hint.textContent = 'JPEG, PNG or WebP'; hint.classList.remove('warn'); }, 3200);
+  }
+  function handleFiles(list) {
+    var f = null;
+    for (var i = 0; i < list.length; i++) { if (list[i] && list[i].type && list[i].type.indexOf('image/') === 0) { f = list[i]; break; } }
+    if (!f) { if (app.dataset.state === 'idle') flash('That file isn’t an image.'); return; }
+    analyze(f, true);
+  }
+  $('pick').addEventListener('click', function (e) { e.stopPropagation(); fileInput.click(); });
+  drop.addEventListener('click', function () { fileInput.click(); });
+  drop.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); } });
+  fileInput.addEventListener('change', function () { if (fileInput.files && fileInput.files.length) handleFiles(fileInput.files); fileInput.value = ''; });
+  newBtn.addEventListener('click', function () { resetToIdle(); });
+  $('other').addEventListener('click', function () { resetToIdle(); });
+  $('retry').addEventListener('click', function () { if (currentFile) analyze(currentFile, false); });
+  $('cancel').addEventListener('click', function () { resetToIdle(); });
+
+  var depth = 0;
+  function hasFiles(e) { var t = e.dataTransfer && e.dataTransfer.types; return t && Array.prototype.indexOf.call(t, 'Files') !== -1; }
+  window.addEventListener('dragenter', function (e) { if (!hasFiles(e)) return; e.preventDefault(); depth++; veil.hidden = false; drop.classList.add('over'); });
+  window.addEventListener('dragover', function (e) { if (!hasFiles(e)) return; e.preventDefault(); });
+  window.addEventListener('dragleave', function (e) { if (!hasFiles(e)) return; depth = Math.max(0, depth - 1); if (!depth) { veil.hidden = true; drop.classList.remove('over'); } });
+  window.addEventListener('drop', function (e) {
+    if (!hasFiles(e)) return;
+    e.preventDefault(); depth = 0; veil.hidden = true; drop.classList.remove('over');
+    handleFiles(e.dataTransfer.files);
+  });
+  document.addEventListener('paste', function (e) {
+    var files = e.clipboardData && e.clipboardData.files;
+    if (files && files.length) handleFiles(files);
+  });
+
+  /* ---------- sending a grid-marked copy to Claude ---------- */
+  // Claude locates things far better when the image carries visible coordinates,
+  // so it gets a copy with a faint 10% grid and labeled lines. The viewer never sees this copy.
+  function gridBlob(withGrid) {
+    return new Promise(function (resolve) {
+      try {
+        var w = photo.naturalWidth, h = photo.naturalHeight;
+        if (!w || !h) return resolve(null);
+        var s = Math.min(1, 1400 / Math.max(w, h));
+        var cw = Math.round(w * s), ch = Math.round(h * s);
+        var c = document.createElement('canvas');
+        c.width = cw; c.height = ch;
+        var x = c.getContext('2d');
+        x.drawImage(photo, 0, 0, cw, ch);
+        if (!withGrid) { c.toBlob(function (b) { resolve(b); }, 'image/jpeg', 0.9); return; }
+        var fs = Math.max(11, Math.round(Math.min(cw, ch) / 46));
+        function line(x1, y1, x2, y2) { x.beginPath(); x.moveTo(x1, y1); x.lineTo(x2, y2); x.stroke(); }
+        x.lineWidth = 1;
+        x.setLineDash([5, 7]);
+        for (var i = 1; i < 10; i++) {
+          var gx = Math.round(cw * i / 10) + .5, gy = Math.round(ch * i / 10) + .5;
+          x.strokeStyle = 'rgba(0,0,0,.28)';
+          line(gx + 1, 0, gx + 1, ch); line(0, gy + 1, cw, gy + 1);
+          x.strokeStyle = 'rgba(255,255,255,.5)';
+          line(gx, 0, gx, ch); line(0, gy, cw, gy);
+        }
+        x.setLineDash([]);
+        x.font = '600 ' + fs + 'px sans-serif';
+        x.textBaseline = 'middle'; x.textAlign = 'center';
+        x.lineJoin = 'round'; x.lineWidth = 3;
+        function label(t, px, py) {
+          x.strokeStyle = 'rgba(0,0,0,.75)'; x.strokeText(t, px, py);
+          x.fillStyle = '#fff'; x.fillText(t, px, py);
+        }
+        for (var j = 1; j < 10; j++) {
+          var t = (j / 10).toFixed(1);
+          label(t, cw * j / 10, fs * .9);
+          label(t, cw * j / 10, ch - fs * .9);
+          label(t, fs * 1.5, ch * j / 10);
+          label(t, cw - fs * 1.5, ch * j / 10);
+        }
+        c.toBlob(function (b) { resolve(b); }, 'image/jpeg', 0.9);
+      } catch (e) { resolve(null); }
+    });
+  }
+
+  /* ---------- analysis ---------- */
+  function pair(v) {
+    return (Array.isArray(v) && v.length >= 2 && isFinite(Number(v[0])) && isFinite(Number(v[1]))) ? [Number(v[0]), Number(v[1])] : null;
+  }
+  function normalize(d) {
+    if (!d || typeof d !== 'object') return null;
+    var isFood = d.is_food !== false;
+    var list = Array.isArray(d.items) ? d.items : [];
+    var out = [];
+    for (var i = 0; i < list.length && out.length < 8; i++) {
+      var o = list[i] || {};
+      var name = String(o.name || '').trim().slice(0, 28);
+      if (!name) continue;
+
+      var bx = Array.isArray(o.box) && o.box.length >= 4 ? o.box.map(Number) : null;
+      if (bx && !bx.every(isFinite)) bx = null;
+      var pt = pair(o.point) || (isFinite(Number(o.x)) && o.x !== null && o.x !== '' ? [Number(o.x), pos(o.y, 0.5)] : null);
+
+      var x1, y1, x2, y2;
+      if (bx) {
+        x1 = clamp(Math.min(bx[0], bx[2]), 0, 1); x2 = clamp(Math.max(bx[0], bx[2]), 0, 1);
+        y1 = clamp(Math.min(bx[1], bx[3]), 0, 1); y2 = clamp(Math.max(bx[1], bx[3]), 0, 1);
+      } else if (pt) {
+        x1 = clamp(pt[0] - .09, 0, 1); x2 = clamp(pt[0] + .09, 0, 1);
+        y1 = clamp(pt[1] - .09, 0, 1); y2 = clamp(pt[1] + .09, 0, 1);
+      } else { x1 = .4; x2 = .6; y1 = .4; y2 = .6; }
+      if (x2 - x1 < .04) { var mx = (x1 + x2) / 2; x1 = clamp(mx - .03, 0, 1); x2 = clamp(mx + .03, 0, 1); }
+      if (y2 - y1 < .04) { var my = (y1 + y2) / 2; y1 = clamp(my - .03, 0, 1); y2 = clamp(my + .03, 0, 1); }
+
+      var px, py;
+      if (pt) {
+        px = pt[0]; py = pt[1];
+        // a point far outside its own box is less trustworthy than the box
+        if (px < x1 - .04 || px > x2 + .04 || py < y1 - .04 || py > y2 + .04) { px = (x1 + x2) / 2; py = (y1 + y2) / 2; }
+      } else { px = (x1 + x2) / 2; py = (y1 + y2) / 2; }
+
+      out.push({
+        name: name,
+        x: clamp(px, 0.03, 0.97), y: clamp(py, 0.04, 0.96),
+        bx1: x1, by1: y1, bx2: x2, by2: y2,
+        grams: num(o.grams), kcal: num(o.kcal), protein: num(o.protein_g), carbs: num(o.carbs_g),
+        fat: num(o.fat_g), fiber: num(o.fiber_g), sugar: num(o.sugar_g), sodium: num(o.sodium_mg)
+      });
+    }
+    if (isFood && !out.length) return null;
+    var conf = String(d.confidence || '').toLowerCase();
+    return {
+      isFood: isFood,
+      dish: String(d.dish || 'Your meal').trim().slice(0, 60),
+      serving: String(d.serving_note || '').trim().slice(0, 80),
+      confidence: ['low', 'medium', 'high'].indexOf(conf) !== -1 ? conf : 'medium',
+      note: String(d.note || '').trim().slice(0, 220),
+      items: out
+    };
+  }
+
+  var ERR = {
+    unavailable: ['Open this in Claude', 'Photo analysis runs through Claude, and this view can’t reach it. Open the page inside Claude and try again.'],
+    images_unavailable: ['Photos aren’t available here', 'This view can’t send images to Claude. Open the page inside Claude and try again.'],
+    type: ['That format isn’t supported', 'Use a JPEG, PNG or WebP photo. HEIC files can be exported as JPEG from your photo app.'],
+    image_rejected: ['That photo couldn’t be read', 'Try a different JPEG, PNG or WebP under 20 MB.'],
+    not_granted: ['Claude needs your OK', 'Allow Claude to read this photo when asked, then try again. Reload the page if the prompt doesn’t appear.'],
+    sampling_disabled: ['Claude isn’t available', 'Claude can’t be used on this account right now.'],
+    capability_disabled: ['Claude isn’t available', 'Claude can’t be used in this view right now.'],
+    not_declared: ['Claude isn’t available', 'Claude can’t be used in this view right now.'],
+    rate_limited: ['Slow down a little', 'You’ve reached the hourly limit for photos. Try again in a while.'],
+    session_expired: ['Please sign in again', 'Your session expired. Sign in again, then try the photo once more.'],
+    refused: ['Couldn’t analyze this photo', 'Claude declined this image. Try a different photo.'],
+    not_food: ['That doesn’t look like food', 'Try a photo of a meal, snack or drink.'],
+    invalid_json: ['Couldn’t read the result', 'The answer came back in an unexpected form. Try again.'],
+    empty_completion: ['No answer came back', 'Try again, or use a different photo.'],
+    upstream_error: ['Connection hiccup', 'Something interrupted the analysis. Try again.'],
+    daily_limit: ['Daily limit reached', 'This site has used all of its analyses for today. Come back tomorrow.'],
+    not_configured: ['Server not set up', 'The server has no working API key. If this is your site, check ANTHROPIC_API_KEY in Render.'],
+    busy: ['Claude is busy', 'Too much demand right now. Wait a minute and try again.'],
+    unsupported: ['That format isn’t supported', 'Use a JPEG, PNG or WebP photo.']
+  };
+  function showError(e) {
+    var code = (e && e.code) || 'upstream_error';
+    if (code === 'cancelled') return;
+    var m = ERR[code] || ERR.upstream_error;
+    $('errTitle').textContent = m[0];
+    $('errMsg').textContent = m[1];
+    $('retry').hidden = !currentFile || code === 'type' || code === 'not_food' || code === 'unavailable' || code === 'images_unavailable' || code === 'daily_limit' || code === 'not_configured' || code === 'unsupported';
+    clearOverlay();
+    setState('error');
+  }
+
+  async function analyze(file, useCache) {
+    if (ctl) { try { ctl.abort(); } catch (e) {} }
+    currentFile = file;
+    clearOverlay();
+    if (objectUrl) URL.revokeObjectURL(objectUrl);
+    objectUrl = URL.createObjectURL(file);
+    photo.src = objectUrl;
+    setState('analyzing');
+    var mine = ctl = new AbortController();
+    try {
+      if (file.size > 30 * 1024 * 1024) throw { code: 'image_rejected' };
+      try { await photo.decode(); } catch (e) {}
+      if (mine !== ctl) return;
+      if (!photo.naturalWidth) throw { code: 'type' };
+      var blob = await gridBlob(true);
+      if (!blob) throw { code: 'image_rejected' };
+
+      var res = await fetch('/api/analyze', { method: 'POST', headers: { 'Content-Type': 'image/jpeg' }, body: blob, signal: mine.signal });
+      if (mine !== ctl) return;
+      var data = null;
+      try { data = await res.json(); } catch (e) {}
+      if (!res.ok) {
+        var code = data && data.code;
+        if (res.status === 413 || res.status === 415) code = 'image_rejected';
+        throw { code: ERR[code] ? code : 'upstream_error' };
+      }
+      if (mine !== ctl) return;
+      var clean = normalize(data);
+      if (!clean) throw { code: 'invalid_json' };
+      if (!clean.isFood) throw { code: 'not_food' };
+      showResult(clean);
+    } catch (e) {
+      if (mine !== ctl) return;
+      showError(e);
+    }
+  }
+
+  /* ---------- result ---------- */
+  function totals() {
+    var t = { kcal: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, sugar: 0, sodium: 0 };
+    items.forEach(function (it) { if (it.off) return; for (var k in t) t[k] += it[k] * mult; });
+    return t;
+  }
+  function countTo(node, to) {
+    cancelAnimationFrame(node._raf);
+    if (reduce) { node.textContent = nf(to); return; }
+    var t0 = performance.now(), dur = 1000;
+    (function step(t) {
+      var p = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - p, 3);
+      node.textContent = nf(to * e);
+      if (p < 1) node._raf = requestAnimationFrame(step);
+    })(t0);
+  }
+
+  function buildMacros() {
+    var box = $('macros');
+    box.textContent = '';
+    macroRows = {};
+    MACROS.forEach(function (m) {
+      var row = el('div', 'mrow');
+      var tr = el('div', 'track'), fill = el('div', 'fill');
+      fill.style.setProperty('--c', m[3]);
+      tr.appendChild(fill);
+      var val = el('span', 'mval'), a = el('span', '', ''), b = el('small', '', '');
+      val.append(a, b);
+      row.append(el('span', 'mlabel', m[1]), tr, val);
+      box.appendChild(row);
+      macroRows[m[0]] = { fill: fill, a: a, b: b, dv: m[2] };
+    });
+  }
+
+  function renderNumbers(animate) {
+    var t = totals();
+    if (animate) countTo($('kcal'), t.kcal); else $('kcal').textContent = nf(t.kcal);
+    $('kcalDv').textContent = 'About ' + Math.round(t.kcal / GOAL * 100) + '% of a 2,000 kcal day';
+    MACROS.forEach(function (m) {
+      var r = macroRows[m[0]], v = t[m[0]], pct = Math.round(v / r.dv * 100);
+      r.a.textContent = g(v) + ' g';
+      r.b.textContent = pct + '% DV';
+      r.fill.style.width = Math.min(100, pct) + '%';
+    });
+    $('sugar').textContent = g(t.sugar) + ' g';
+    $('sodium').textContent = nf(t.sodium) + ' mg';
+    items.forEach(function (it) {
+      var kc = it.off ? 0 : it.kcal * mult;
+      it.k.textContent = it.off ? 'out' : nf(kc) + ' kcal';
+      it.liK.firstChild.textContent = nf(kc);
+      it.liSub.textContent = it.off ? 'Left out' : nf(it.grams * mult) + ' g · P ' + g(it.protein * mult) + ' · C ' + g(it.carbs * mult) + ' · F ' + g(it.fat * mult);
+      it.seg.style.setProperty('--w', kc);
+      it.seg.style.display = kc > 0 ? '' : 'none';
+    });
+  }
+
+  function highlight(i) {
+    items.forEach(function (it, k) {
+      var on = k === i;
+      it.tag.classList.toggle('on', on);
+      it.li.classList.toggle('on', on);
+      it.grp.classList.toggle('hot', on);
+      it.grp.classList.toggle('dim', i !== -1 && !on);
+      it.bb.classList.toggle('show', on);
+      it.seg.classList.toggle('dim', i !== -1 && !on);
+    });
+  }
+
+  function toggleItem(i) {
+    var it = items[i];
+    if (!it) return;
+    it.off = !it.off;
+    it.tag.classList.toggle('off', it.off);
+    it.li.classList.toggle('off', it.off);
+    it.li.setAttribute('aria-checked', it.off ? 'false' : 'true');
+    it.grp.classList.toggle('off', it.off);
+    renderNumbers(false);
+    layout();
+    logBtn.disabled = false;
+    logBtn.textContent = 'Add to today';
+  }
+
+  function bindDrag(it, i) {
+    var hit = it.hit;
+    function end(e) {
+      if (!dragging) return;
+      dragging = false;
+      try { hit.releasePointerCapture(e.pointerId); } catch (x) {}
+      if (!hit.matches(':hover')) highlight(-1);
+    }
+    hit.addEventListener('pointerdown', function (e) {
+      e.preventDefault();
+      dragging = true;
+      try { hit.setPointerCapture(e.pointerId); } catch (x) {}
+      highlight(i);
+    });
+    hit.addEventListener('pointermove', function (e) {
+      if (!dragging) return;
+      var r = photo.getBoundingClientRect();
+      if (!r.width || !r.height) return;
+      var nx = clamp((e.clientX - r.left) / r.width, 0.01, 0.99);
+      var ny = clamp((e.clientY - r.top) / r.height, 0.01, 0.99);
+      var dx = nx - it.x, dy = ny - it.y;
+      it.x = nx; it.y = ny;
+      it.bx1 += dx; it.bx2 += dx; it.by1 += dy; it.by2 += dy;
+      layout();
+    });
+    hit.addEventListener('pointerup', end);
+    hit.addEventListener('pointercancel', end);
+    hit.addEventListener('pointerenter', function () { if (!dragging) highlight(i); });
+    hit.addEventListener('pointerleave', function () { if (!dragging) highlight(-1); });
+  }
+
+  function showResult(clean) {
+    mult = 1;
+    Array.prototype.forEach.call($('seg').children, function (b) { b.setAttribute('aria-checked', b.dataset.m === '1' ? 'true' : 'false'); });
+    $('dish').textContent = clean.dish;
+    $('serving').textContent = clean.serving || 'Portion as shown';
+    $('conf').textContent = clean.confidence + ' confidence';
+    $('note').textContent = clean.note;
+    $('note').hidden = !clean.note;
+    logBtn.disabled = false;
+    logBtn.textContent = 'Add to today';
+    buildMacros();
+
+    svg.textContent = '';
+    ov.querySelectorAll('.tag').forEach(function (t) { t.remove(); });
+    var list = $('ingList'), share = $('share');
+    list.textContent = '';
+    share.textContent = '';
+    var defs = sv('defs', {});
+    svg.appendChild(defs);
+
+    items = clean.items.map(function (o, i) {
+      var it = Object.assign({ off: false }, o);
+      it.col = 'hsl(' + ((205 + i * 47) % 360) + ' var(--is) var(--il))';
+
+      var grp = sv('g', { 'class': 'lg' });
+      grp.style.setProperty('--i', i);
+
+      var gr = sv('linearGradient', { id: 'lgrad' + i, gradientUnits: 'userSpaceOnUse', x1: 0, y1: 0, x2: 1, y2: 0 });
+      var s0 = sv('stop', { offset: '0' }); s0.style.stopColor = 'var(--lead)';
+      var s1 = sv('stop', { offset: '1' }); s1.style.stopColor = it.col;
+      gr.append(s0, s1);
+      defs.appendChild(gr);
+
+      var bb = sv('rect', { 'class': 'bb', rx: 10 });
+      bb.style.stroke = it.col; bb.style.fill = it.col;
+      var halo = sv('path', { 'class': 'lead-halo', pathLength: '1', d: 'M0 0' });
+      var line = sv('path', { 'class': 'lead-line', pathLength: '1', d: 'M0 0', stroke: 'url(#lgrad' + i + ')' });
+
+      var spark = sv('circle', { 'class': 'spark', r: '2.4' });
+      var am = sv('animateMotion', { dur: '3s', repeatCount: 'indefinite', begin: 'indefinite', calcMode: 'linear' });
+      var an = sv('animate', { attributeName: 'opacity', values: '0;1;1;0', keyTimes: '0;.12;.85;1', dur: '3s', repeatCount: 'indefinite', begin: 'indefinite' });
+      spark.append(am, an);
+
+      var ret = sv('g', { 'class': 'ret' });
+      var hit = sv('circle', { 'class': 'hit', r: '18' });
+      var retin = sv('g', { 'class': 'retin' });
+      var ticks = 'M0 -14V-10.5M0 14V10.5M-14 0H-10.5M14 0H10.5';
+      var pulse = sv('circle', { 'class': 'pulse', r: '8' });
+      var core = sv('circle', { 'class': 'r-core', r: '3' });
+      core.style.fill = it.col;
+      retin.append(
+        pulse,
+        sv('circle', { 'class': 'r-halo', r: '8' }), sv('path', { 'class': 'r-tick-h', d: ticks }),
+        sv('circle', { 'class': 'r-ring', r: '8' }), sv('path', { 'class': 'r-tick', d: ticks }),
+        core
+      );
+      ret.append(hit, retin);
+      [retin, pulse, halo, line].forEach(function (n) { n.style.setProperty('--i', i); });
+
+      grp.append(bb, halo, line, spark, ret);
+      svg.appendChild(grp);
+
+      var tag = el('div', 'tag');
+      tag.style.setProperty('--i', i);
+      tag.style.setProperty('--c', it.col);
+      var td = el('span', 'td'), n = el('span', 'n', o.name), k = el('span', 'k', '');
+      tag.append(td, n, k);
+      ov.appendChild(tag);
+      tag.addEventListener('mouseenter', function () { if (!dragging) highlight(i); });
+      tag.addEventListener('mouseleave', function () { if (!dragging) highlight(-1); });
+      tag.addEventListener('click', function () { toggleItem(i); });
+
+      var li = el('li');
+      li.tabIndex = 0;
+      li.setAttribute('role', 'switch');
+      li.setAttribute('aria-checked', 'true');
+      li.style.setProperty('--c', it.col);
+      var sw = el('span', 'sw');
+      var mid = el('div'), nm = el('div', 'ing-name', o.name), sub = el('div', 'ing-sub', '');
+      mid.append(nm, sub);
+      var liK = el('div', 'ing-kcal'); liK.append(document.createTextNode('0'), el('small', '', 'kcal'));
+      li.append(sw, mid, liK);
+      list.appendChild(li);
+      li.addEventListener('mouseenter', function () { highlight(i); });
+      li.addEventListener('mouseleave', function () { highlight(-1); });
+      li.addEventListener('click', function () { toggleItem(i); });
+      li.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleItem(i); } });
+
+      var seg = el('i');
+      seg.style.setProperty('--c', it.col);
+      share.appendChild(seg);
+      seg.addEventListener('mouseenter', function () { highlight(i); });
+      seg.addEventListener('mouseleave', function () { highlight(-1); });
+
+      it.grp = grp; it.halo = halo; it.line = line; it.bb = bb; it.ret = ret; it.hit = hit;
+      it.grad = gr; it.am = am; it.an = an;
+      it.tag = tag; it.k = k; it.li = li; it.liK = liK; it.liSub = sub; it.seg = seg;
+      bindDrag(it, i);
+
+      if (!reduce) {
+        setTimeout(function () { try { am.beginElement(); an.beginElement(); } catch (e) {} }, 1500 + i * 260);
+      }
+      return it;
+    });
+
+    setState('result');
+    renderNumbers(true);
+    layout();
+    requestAnimationFrame(layout);
+  }
+
+  $('seg').addEventListener('click', function (e) {
+    var b = e.target.closest('button');
+    if (!b || !items.length) return;
+    mult = Number(b.dataset.m) || 1;
+    Array.prototype.forEach.call($('seg').children, function (x) { x.setAttribute('aria-checked', x === b ? 'true' : 'false'); });
+    renderNumbers(false);
+    layout();
+    logBtn.disabled = false;
+    logBtn.textContent = 'Add to today';
+  });
+
+  /* ---------- annotation layout ---------- */
+  function layout() {
+    if (!items.length || work.hidden) return;
+    var avail = stage.clientWidth - 28;
+    var out = avail >= 780;
+    stage.classList.toggle('out', out);
+
+    var W = photo.clientWidth, H = photo.clientHeight;
+    if (!W || !H) return;
+    var tagH = out ? 32 : 26;
+    ov.style.setProperty('--tag-h', tagH + 'px');
+    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+
+    var gap = tagH + 8, pad = out ? 16 : 8, off = 16;
+    var sides = { L: [], R: [] };
+    items.forEach(function (it) {
+      it.w = it.tag.offsetWidth;
+      it.px = it.x * W; it.py = it.y * H;
+      it.side = it.px < W / 2 ? 'L' : 'R';
+      sides[it.side].push(it);
+    });
+
+    ['L', 'R'].forEach(function (s) {
+      var grp = sides[s].sort(function (a, b) { return a.py - b.py; });
+      if (!grp.length) return;
+      var minY = pad, maxY = Math.max(minY, H - pad - tagH);
+      var ys = grp.map(function (it) { return clamp(it.py - tagH / 2, minY, maxY); });
+      for (var i = 1; i < ys.length; i++) ys[i] = Math.max(ys[i], ys[i - 1] + gap);
+      var over = ys[ys.length - 1] - maxY;
+      if (over > 0) ys = ys.map(function (y) { return y - over; });
+      if (ys[0] < minY) { ys[0] = minY; for (var j = 1; j < ys.length; j++) ys[j] = Math.max(ys[j], ys[j - 1] + gap); }
+
+      grp.forEach(function (it, idx) {
+        var y = ys[idx], ly = y + tagH / 2, x, cx;
+        if (s === 'L') {
+          x = out ? -(it.w + off) : pad;
+          cx = out ? -off : pad + it.w;
+        } else {
+          x = out ? W + off : W - pad - it.w;
+          cx = out ? W + off : W - pad - it.w;
+        }
+        it.tag.style.left = x + 'px';
+        it.tag.style.top = y + 'px';
+
+        // smooth S-curve with horizontal tangents at both ends
+        var dx = cx - it.px;
+        if (Math.abs(dx) < 2) dx = s === 'L' ? -2 : 2;
+        var d = 'M' + it.px.toFixed(1) + ' ' + it.py.toFixed(1) +
+          ' C' + (it.px + dx * .55).toFixed(1) + ' ' + it.py.toFixed(1) +
+          ' ' + (cx - dx * .55).toFixed(1) + ' ' + ly.toFixed(1) +
+          ' ' + cx.toFixed(1) + ' ' + ly.toFixed(1);
+        it.halo.setAttribute('d', d);
+        it.line.setAttribute('d', d);
+        it.am.setAttribute('path', d);
+        it.grad.setAttribute('x1', it.px.toFixed(1));
+        it.grad.setAttribute('y1', it.py.toFixed(1));
+        it.grad.setAttribute('x2', (it.px + dx).toFixed(1));
+        it.grad.setAttribute('y2', ly.toFixed(1));
+        it.ret.setAttribute('transform', 'translate(' + it.px.toFixed(1) + ' ' + it.py.toFixed(1) + ')');
+
+        var bx = it.bx1 * W, by = it.by1 * H;
+        it.bb.setAttribute('x', bx.toFixed(1));
+        it.bb.setAttribute('y', by.toFixed(1));
+        it.bb.setAttribute('width', Math.max(8, (it.bx2 - it.bx1) * W).toFixed(1));
+        it.bb.setAttribute('height', Math.max(8, (it.by2 - it.by1) * H).toFixed(1));
+      });
+    });
+  }
+
+  if (window.ResizeObserver) {
+    var raf = 0;
+    new ResizeObserver(function () { cancelAnimationFrame(raf); raf = requestAnimationFrame(layout); }).observe(stage);
+  } else {
+    window.addEventListener('resize', layout);
+  }
+  photo.addEventListener('load', layout);
+
+  /* ---------- today log ---------- */
+  var LOG_KEY = 'plate-lens-log-v1';
+  var meals = [];
+  function dayKey() { var d = new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
+  function loadMeals() {
+    try {
+      var r = localStorage.getItem(LOG_KEY);
+      if (r) {
+        var o = JSON.parse(r);
+        if (o && o.day === dayKey() && Array.isArray(o.meals)) meals = o.meals.slice(0, 40);
+      }
+    } catch (e) {}
+  }
+  function saveMeals() {
+    try { localStorage.setItem(LOG_KEY, JSON.stringify({ day: dayKey(), meals: meals })); } catch (e) {}
+  }
+  function makeThumb() {
+    try {
+      var s = 96, c = document.createElement('canvas');
+      c.width = c.height = s;
+      var x = c.getContext('2d');
+      var w = photo.naturalWidth, h = photo.naturalHeight, m = Math.min(w, h);
+      if (!m) return '';
+      x.drawImage(photo, (w - m) / 2, (h - m) / 2, m, m, 0, 0, s, s);
+      return c.toDataURL('image/jpeg', .72);
+    } catch (e) { return ''; }
+  }
+
+  logBtn.addEventListener('click', function () {
+    if (!items.length) return;
+    var t = totals();
+    meals.unshift({
+      id: Date.now(), t: Date.now(), dish: $('dish').textContent || 'Meal',
+      kcal: Math.round(t.kcal), protein: Math.round(t.protein * 10) / 10, carbs: Math.round(t.carbs * 10) / 10,
+      fat: Math.round(t.fat * 10) / 10, fiber: Math.round(t.fiber * 10) / 10, thumb: makeThumb()
+    });
+    meals = meals.slice(0, 40);
+    saveMeals();
+    logBtn.disabled = true;
+    logBtn.textContent = 'Added to today';
+    renderToday();
+  });
+
+  function renderToday() {
+    var st = app.dataset.state;
+    todayEl.hidden = !meals.length || !(st === 'idle' || st === 'result');
+    if (todayEl.hidden) return;
+
+    var sum = { kcal: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 };
+    meals.forEach(function (m) { for (var k in sum) sum[k] += Number(m[k]) || 0; });
+    $('tKcal').textContent = nf(sum.kcal);
+    $('tFill').style.width = Math.min(100, sum.kcal / GOAL * 100) + '%';
+
+    var tm = $('tMacros');
+    tm.textContent = '';
+    MACROS.forEach(function (m) {
+      var d = el('div');
+      var b = el('b', '', g(sum[m[0]]) + ' g');
+      var s = el('span'), dot = el('i');
+      dot.style.setProperty('--c', m[3]);
+      s.append(dot, document.createTextNode(m[1]));
+      d.append(b, s);
+      tm.appendChild(d);
+    });
+
+    var ul = $('meals');
+    ul.textContent = '';
+    meals.forEach(function (m) {
+      var li = el('li');
+      var img = el('img', 'thumb');
+      img.alt = '';
+      if (typeof m.thumb === 'string' && m.thumb.indexOf('data:image/jpeg') === 0) img.src = m.thumb;
+      var mid = el('div');
+      mid.style.minWidth = '0';
+      var tm2 = '';
+      try { tm2 = new Date(m.t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); } catch (e) {}
+      mid.append(el('div', 'meal-name', String(m.dish || 'Meal')), el('div', 'meal-time', tm2));
+      var kc = el('div', 'meal-kcal', nf(Number(m.kcal) || 0) + ' kcal');
+      var x = el('button', 'x', '×');
+      x.type = 'button';
+      x.setAttribute('aria-label', 'Remove ' + String(m.dish || 'meal'));
+      x.addEventListener('click', function () {
+        meals = meals.filter(function (q) { return q.id !== m.id; });
+        saveMeals();
+        renderToday();
+      });
+      li.append(img, mid, kc, x);
+      ul.appendChild(li);
+    });
+  }
+
+  loadMeals();
+  renderToday();
+})();
+</script>
+</body>
+</html>

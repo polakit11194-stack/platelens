@@ -1,0 +1,14 @@
+{
+  "name": "plate-lens",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Food photo calorie and nutrition analyzer",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
